@@ -166,6 +166,10 @@ class Scheme:
         return [inner, skin, grad_z, inner_lap, skin_lap,
                 inner_grad_x, inner_grad_y, skin_grad_x, skin_grad_y]
 
+    def _get_values(self, key):
+        cols = [pos for vec in self.dot_names[key] for pos in vec]
+        return self.temperatures[cols].astype(np.float32).values
+
     @staticmethod
     def _compute_laplacian(grids, skin_values=None, dirichlet_value=None):
         n_patients, n, m = grids.shape
@@ -273,10 +277,6 @@ class Scheme:
 
         return grad_x, grad_y
 
-    def _get_values(self, key):
-        cols = [pos for vec in self.dot_names[key] for pos in vec]
-        return self.temperatures[cols].astype(np.float32).values
-
     @staticmethod
     def _validate_inputs(dot_names, grid_shape, has_paired_organ, has_support_points, has_central_support_points):
         required_paired = ["inner left", "inner right", "skin left", "skin right"]
@@ -339,3 +339,4 @@ class Scheme:
                 seen[dot] = idx
         if duplicates:
             raise ValueError(f"Duplicate dot names: {', '.join(duplicates)}")
+

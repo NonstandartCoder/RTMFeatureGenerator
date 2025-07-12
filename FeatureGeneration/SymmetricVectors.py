@@ -8,9 +8,9 @@ class SymmetricVectors:
         self.scheme = scheme
         self.grid_shape = self.scheme.get_grid_shape()
         self.has_paired_organ = self.scheme.get_has_paired_organ()
-        self.matrix_names = self._get_matrix_names()
+        self.matrix_names = self.get_matrix_names()
 
-    def _get_matrix_names(self):
+    def get_matrix_names(self):
         base = [
             "Inner", "Skin", "Gradient",
             "Laplacian Inner", "Laplacian Skin",
@@ -41,7 +41,7 @@ class SymmetricVectors:
         if x1 == x2:
             reflected_x = 2 * x1 - x
             reflected_y = y
-            return self._validate_reflection(reflected_x, reflected_y)
+            return self.validate_reflection(reflected_x, reflected_y)
 
         a = y2 - y1
         b = x1 - x2
@@ -57,9 +57,9 @@ class SymmetricVectors:
         reflected_x = 2 * proj_x - x
         reflected_y = 2 * proj_y - y
 
-        return self._validate_reflection(reflected_x, reflected_y)
+        return self.validate_reflection(reflected_x, reflected_y)
 
-    def _validate_reflection(self, x, y):
+    def validate_reflection(self, x, y):
         EPSILON = 1e-6
         x_round = round(x)
         y_round = round(y)
@@ -71,7 +71,7 @@ class SymmetricVectors:
             return int(x_round), int(y_round)
         return None
 
-    def _get_outer_cycle(self):
+    def get_outer_cycle(self):
         n, m = self.grid_shape
         cycle = []
 
@@ -91,7 +91,7 @@ class SymmetricVectors:
 
         return cycle
 
-    def _is_outer_point(self, row, col):
+    def is_outer_point(self, row, col):
         n, m = self.grid_shape
         return row == 0 or row == n-1 or col == 0 or col == m-1
 
@@ -100,13 +100,13 @@ class SymmetricVectors:
         if n < 1 or m < 1:
             return None
 
-        cycle = self._get_outer_cycle()
+        cycle = self.get_outer_cycle()
         if not cycle:
             return None
 
         cycle_length = len(cycle)
 
-        if not self._is_outer_point(row, col):
+        if not self.is_outer_point(row, col):
             return row, col
 
         try:
@@ -116,24 +116,27 @@ class SymmetricVectors:
         except ValueError:
             return None
 
-    def _get_dot_names(self, matrix_name):
+    def get_dot_names(self, matrix_name):
+        """Для разностных матриц используем сетку точек левой стороны"""
+        # Определяем базовое имя матрицы без указания стороны/типа
         base_name = matrix_name
         if 'diff' in matrix_name.lower():
             base_name = matrix_name.replace('diff', '').strip()
         elif 'left' in matrix_name.lower() or 'right' in matrix_name.lower():
             base_name = matrix_name.rsplit(' ', 1)[0].strip()
 
+        # Определяем тип матрицы
         if 'inner' in base_name.lower():
-            key = "inner left" if self.has_paired_organ else "inner"
+            key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
         elif 'skin' in base_name.lower():
-            key = "skin left" if self.has_paired_organ else "skin"
+            key = "skin left" if self.scheme.get_has_paired_organ() else "skin"
         elif 'gradient' in base_name.lower():
-            key = "inner left" if self.has_paired_organ else "inner"
+            key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
         elif 'laplacian' in base_name.lower():
             if 'inner' in base_name.lower():
-                key = "inner left" if self.has_paired_organ else "inner"
+                key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
             else:
-                key = "skin left" if self.has_paired_organ else "skin"
+                key = "skin left" if self.scheme.get_has_paired_organ() else "skin"
         else:
             raise ValueError(f"Unknown matrix type: {matrix_name}")
 
@@ -143,7 +146,7 @@ class SymmetricVectors:
         symmetries = {}
 
         for matrix_idx, matrix_name in enumerate(self.matrix_names):
-            dot_grid = self._get_dot_names(matrix_name)
+            dot_grid = self.get_dot_names(matrix_name)
             grid_points = [(r, c) for r in range(self.grid_shape[0])
                            for c in range(self.grid_shape[1])]
 
@@ -209,7 +212,7 @@ class SymmetricVectors:
 
     def get_rotation_symmetries(self):
         symmetries = {}
-        cycle = self._get_outer_cycle()
+        cycle = self.get_outer_cycle()
         cycle_length = len(cycle)
         if cycle_length < 2:
             return symmetries
@@ -218,7 +221,7 @@ class SymmetricVectors:
 
         # Обработка вращений внутри одной матрицы
         for matrix_idx, matrix_name in enumerate(self.matrix_names):
-            dot_grid = self._get_dot_names(matrix_name)
+            dot_grid = self.get_dot_names(matrix_name)
 
             for k in range(1, cycle_length):
                 pairs = []
@@ -246,8 +249,8 @@ class SymmetricVectors:
                 right_idx = left_idx + group_size  # соответствущая правая матрица
                 left_name = self.matrix_names[left_idx]
                 right_name = self.matrix_names[right_idx]
-                left_dots = self._get_dot_names(left_name)
-                right_dots = self._get_dot_names(right_name)
+                left_dots = self.get_dot_names(left_name)
+                right_dots = self.get_dot_names(right_name)
 
                 for k in range(1, cycle_length):
                     pairs = []
@@ -269,7 +272,7 @@ class SymmetricVectors:
                     # Внутренние точки без ротации
                     for row in range(n):
                         for col in range(m):
-                            if not self._is_outer_point(row, col):
+                            if not self.is_outer_point(row, col):
                                 try:
                                     dot_left = left_dots[row][col]
                                     dot_right = right_dots[row][col]
@@ -306,8 +309,8 @@ class SymmetricVectors:
                     (m1, r1, c1), (m2, r2, c2) = pair
                     matrix1 = self.matrix_names[m1]
                     matrix2 = self.matrix_names[m2]
-                    dots1 = self._get_dot_names(matrix1)
-                    dots2 = self._get_dot_names(matrix2)
+                    dots1 = self.get_dot_names(matrix1)
+                    dots2 = self.get_dot_names(matrix2)
                     dot1 = dots1[r1][c1]
                     dot2 = dots2[r2][c2]
                     sorted_dots = tuple(sorted([dot1, dot2]))

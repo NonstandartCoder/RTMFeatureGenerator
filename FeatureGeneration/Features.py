@@ -12,89 +12,9 @@ class Features:
     def __init__(self, scheme):
         self.scheme = scheme
         self.grid_shape = scheme.get_grid_shape()
-        self.symmetric_vectors = SymmetricVectors(scheme).get_symmetric_vectors()
-        self.matrix_names = self._get_matrix_names()
-
-    def compute_matrix_statistics(self, patients_data):
-        """Вычисляет статистики для каждой матрицы (канала) и возвращает метаданные"""
-        stats_functions = [
-            ('Mean', np.mean),
-            ('Std', np.std),
-            ('Max', np.max),
-            ('Min', np.min),
-            ('Osc', np.ptp),
-            ("L1", self.l1_norm),
-            ("L2", self.l2_norm)
-        ]
-
-        matrix_stats = {}
-        matrix_metadata = []  # Список для хранения метаданных
-        n_patients, n_channels, _, _ = patients_data.shape
-
-        for i, name in enumerate(self.matrix_names):
-            channel_data = patients_data[:, i, :, :]
-            for stat_name, func in stats_functions:
-                try:
-                    stat_value = func(channel_data, axis=(1, 2))
-                except TypeError:
-                    stat_value = np.array([func(mat) for mat in channel_data])
-
-                feature_name = f"{name}_{stat_name}"
-                matrix_stats[feature_name] = stat_value
-                # Добавляем метаданные: имя признака и название матрицы
-                matrix_metadata.append((feature_name, name))
-
-        return matrix_stats, matrix_metadata
-
-    def _get_dot_grid(self, matrix_name):
-        """Для разностных матриц используем сетку точек левой стороны"""
-        # Определяем базовое имя матрицы без указания стороны/типа
-        base_name = matrix_name
-        if 'diff' in matrix_name.lower():
-            base_name = matrix_name.replace('diff', '').strip()
-        elif 'left' in matrix_name.lower() or 'right' in matrix_name.lower():
-            base_name = matrix_name.rsplit(' ', 1)[0].strip()
-
-        # Определяем тип матрицы
-        if 'inner' in base_name.lower():
-            key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
-        elif 'skin' in base_name.lower():
-            key = "skin left" if self.scheme.get_has_paired_organ() else "skin"
-        elif 'gradient' in base_name.lower():
-            key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
-        elif 'laplacian' in base_name.lower():
-            if 'inner' in base_name.lower():
-                key = "inner left" if self.scheme.get_has_paired_organ() else "inner"
-            else:
-                key = "skin left" if self.scheme.get_has_paired_organ() else "skin"
-        else:
-            raise ValueError(f"Unknown matrix type: {matrix_name}")
-
-        return self.scheme.get_dot_names()[key]
-
-    def _get_matrix_names(self):
-        base = [
-            "Inner", "Skin", "Gradient",
-            "Laplacian Inner", "Laplacian Skin",
-            "Inner Gradient X", "Inner Gradient Y",
-            "Skin Gradient X", "Skin Gradient Y"
-        ]
-
-        if self.scheme.get_has_support_points():
-            support_matrices = [f"{name} Support" for name in base]
-            base.extend(support_matrices)
-
-            if self.scheme.get_has_central_support_points():
-                central_support_matrices = [f"{name} Central Support" for name in base]
-                base.extend(central_support_matrices)
-
-        if self.scheme.get_has_paired_organ():
-            left = [f"{n} left" for n in base]
-            right = [f"{n} right" for n in base]
-            diff = [f"{n} diff" for n in base]
-            return left + right + diff
-
-        return base
+        self.symmetric_vectors_obj = SymmetricVectors(scheme)
+        self.symmetric_vectors = self.symmetric_vectors_obj.get_symmetric_vectors()
+        self.matrix_names = self.symmetric_vectors_obj.get_matrix_names()
 
     def get_features(self, chunk_step=500, output_dir=None):
         feature_functions = [
@@ -176,6 +96,70 @@ class Features:
         group_df.to_csv(os.path.join(output_dir, 'feature_groups.csv'), index=False)
         return None
 
+    def compute_matrix_statistics(self, patients_data):
+        """Вычисляет статистики для каждой матрицы (канала) и возвращает метаданные"""
+        stats_functions = [
+            ('Mean', np.mean),
+            ('Std', np.std),
+            ('Max', np.max),
+            ('Min', np.min),
+            ('Osc', np.ptp),
+            ("L1", self.l1_norm),
+            ("L2", self.l2_norm)
+        ]
+
+        matrix_stats = {}
+        matrix_metadata = []  # Список для хранения метаданных
+        n_patients, n_channels, _, _ = patients_data.shape
+
+        for i, name in enumerate(self.matrix_names):
+            channel_data = patients_data[:, i, :, :]
+            for stat_name, func in stats_functions:
+                try:
+                    stat_value = func(channel_data, axis=(1, 2))
+                except TypeError:
+                    stat_value = np.array([func(mat) for mat in channel_data])
+
+                feature_name = f"{name}_{stat_name}"
+                matrix_stats[feature_name] = stat_value
+                # Добавляем метаданные: имя признака и название матрицы
+                matrix_metadata.append((feature_name, name))
+
+        return matrix_stats, matrix_metadata
+
+    @staticmethod
+    def l1_norm(x, axis=None):
+        return np.abs(x).sum(axis=axis)
+
+    @staticmethod
+    def l2_norm(x, axis=None):
+        return np.sqrt((x ** 2).sum(axis=axis))
+
+    @staticmethod
+    def _hash_array(arr):
+        """Хеширует массив значений для проверки уникальности"""
+        # Приводим к float32 для единообразия
+        arr = arr.astype(np.float32)
+        # Преобразуем в байты и хешируем
+        return hashlib.sha256(arr.tobytes()).hexdigest()
+
+    @staticmethod
+    def _apply_func(arr, func):
+        try:
+            return func(arr, axis=1)
+        except TypeError:
+            return np.array([func(row) for row in arr])
+
+    @staticmethod
+    def _prepare_indexes(vec):
+        if len(vec[0]) == 3:
+            g = np.array([p[0] for p in vec], dtype=np.uint16)
+        else:
+            g = None
+        i = np.array([p[1] for p in vec], dtype=np.uint16)
+        j = np.array([p[2] for p in vec], dtype=np.uint16)
+        return g, i, j
+
     def _process_chunk(self, dataset, vectors, functions):
         n_patients, n_groups, _, _ = dataset.shape
         all_features = {}
@@ -208,13 +192,13 @@ class Features:
             v1_dots = []
             for (m_idx, r, c) in vec1:
                 matrix_name = self.matrix_names[m_idx]
-                dot_grid = self._get_dot_grid(matrix_name)
+                dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
                 v1_dots.append(dot_grid[r][c])
 
             v2_dots = []
             for (m_idx, r, c) in vec2:
                 matrix_name = self.matrix_names[m_idx]
-                dot_grid = self._get_dot_grid(matrix_name)
+                dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
                 v2_dots.append(dot_grid[r][c])
 
             v1_unique = sorted(list(set(v1_dots)))
@@ -244,7 +228,7 @@ class Features:
                            g1, g2, existing_value_hashes):
         channels = np.unique(g1) if g1 is not None else [0]
 
-        def add_feature(feature_name, feature_values):
+        def _add_feature(feature_name, feature_values):
             # Проверяем уникальность значений признака
             arr_hash = self._hash_array(feature_values)
 
@@ -281,9 +265,9 @@ class Features:
                 feat_name_v1 = f"{processed_vec_name}_V1_{matrix_name}"
                 feat_name_v2 = f"{processed_vec_name}_V2_{matrix_name}"
 
-                if add_feature(feat_name_v1, v1_val):
+                if _add_feature(feat_name_v1, v1_val):
                     metadata.append((feat_name_v1, 1, original_vec_name))
-                if add_feature(feat_name_v2, v2_val):
+                if _add_feature(feat_name_v2, v2_val):
                     metadata.append((feat_name_v2, 1, original_vec_name))
             # Для нескольких элементов - применяем статистические функции
             else:
@@ -294,15 +278,15 @@ class Features:
                     feat_name_v1 = f"{processed_vec_name}_{fname}_V1_{matrix_name}"
                     feat_name_v2 = f"{processed_vec_name}_{fname}_V2_{matrix_name}"
 
-                    if add_feature(feat_name_v1, v1_val):
+                    if _add_feature(feat_name_v1, v1_val):
                         metadata.append((feat_name_v1, 1, original_vec_name))
-                    if add_feature(feat_name_v2, v2_val):
+                    if _add_feature(feat_name_v2, v2_val):
                         metadata.append((feat_name_v2, 1, original_vec_name))
 
         # Type 2: f(x - y) → vector_diff
         for fname, func in functions:
             key = f"{processed_vec_name}_{fname}_vector_diff"
-            if add_feature(key, self._apply_func(diff, func)):
+            if _add_feature(key, self._apply_func(diff, func)):
                 metadata.append((key, 2, original_vec_name))
 
         # Type 3: f(x)_V1 - f(x)_V2 → funcs_diff
@@ -318,7 +302,7 @@ class Features:
                 else:
                     value = np.zeros(v1.shape[0])
 
-                if add_feature(key, value):
+                if _add_feature(key, value):
                     metadata.append((key, 3, original_vec_name))
 
         # Type 4: f(x)_V1 - g(y)_V2 → funcs_diff
@@ -327,7 +311,7 @@ class Features:
                 continue
             key = f"{processed_vec_name}_{f1}_V1-{f2}_V2_funcs_diff"
             value = self._apply_func(v1, func1) - self._apply_func(v2, func2)
-            if add_feature(key, value):
+            if _add_feature(key, value):
                 metadata.append((key, 4, original_vec_name))
 
         # Type 5: f(x) - g(x) on same vector → funcs_diff
@@ -336,9 +320,9 @@ class Features:
                 continue
             key_v1 = f"{processed_vec_name}_{f1}-{f2}_funcs_diff_V1"
             key_v2 = f"{processed_vec_name}_{f1}-{f2}_funcs_diff_V2"
-            if add_feature(key_v1, self._apply_func(v1, func1) - self._apply_func(v1, func2)):
+            if _add_feature(key_v1, self._apply_func(v1, func1) - self._apply_func(v1, func2)):
                 metadata.append((key_v1, 5, original_vec_name))
-            if add_feature(key_v2, self._apply_func(v2, func1) - self._apply_func(v2, func2)):
+            if _add_feature(key_v2, self._apply_func(v2, func1) - self._apply_func(v2, func2)):
                 metadata.append((key_v2, 5, original_vec_name))
 
         # Type 6: Matrix stat comparisons
@@ -357,9 +341,9 @@ class Features:
 
                     key_v1 = f"{processed_vec_name}_Matrix_{stat_name}-{fname}_V1_ch{ch}"
                     key_v2 = f"{processed_vec_name}_Matrix_{stat_name}-{fname}_V2_ch{ch}"
-                    if add_feature(key_v1, stat_values[:, ch] - v1_val):
+                    if _add_feature(key_v1, stat_values[:, ch] - v1_val):
                         metadata.append((key_v1, 6, original_vec_name))
-                    if add_feature(key_v2, stat_values[:, ch] - v2_val):
+                    if _add_feature(key_v2, stat_values[:, ch] - v2_val):
                         metadata.append((key_v2, 6, original_vec_name))
 
         # Type 7: Transformations: function(matrix_stat - vector_elements)
@@ -371,51 +355,18 @@ class Features:
                     for fname, func in functions:
                         feature_name = f"{fname}({processed_vec_name}_{stat_name}_minus_{vec_type})"
                         value = self._apply_func(diff_stat, func)
-                        if add_feature(feature_name, value):
+                        if _add_feature(feature_name, value):
                             metadata.append((feature_name, 7, original_vec_name))
                 else:
                     feature_name = f"{processed_vec_name}_{stat_name}_minus_{vec_type}"
-                    if add_feature(feature_name, diff_stat):
+                    if _add_feature(feature_name, diff_stat):
                         metadata.append((feature_name, 7, original_vec_name))
 
         # Type 8: f(|x - y|) → vector_abs_diff
         for fname, func in functions:
             key = f"{processed_vec_name}_{fname}_vector_abs_diff"
-            if add_feature(key, self._apply_func(abs_diff, func)):
+            if _add_feature(key, self._apply_func(abs_diff, func)):
                 metadata.append((key, 8, original_vec_name))
-
-    @staticmethod
-    def _hash_array(arr):
-        """Хеширует массив значений для проверки уникальности"""
-        # Приводим к float32 для единообразия
-        arr = arr.astype(np.float32)
-        # Преобразуем в байты и хешируем
-        return hashlib.sha256(arr.tobytes()).hexdigest()
-
-    @staticmethod
-    def _apply_func(arr, func):
-        try:
-            return func(arr, axis=1)
-        except TypeError:
-            return np.array([func(row) for row in arr])
-
-    @staticmethod
-    def l1_norm(x, axis=None):
-        return np.abs(x).sum(axis=axis)
-
-    @staticmethod
-    def l2_norm(x, axis=None):
-        return np.sqrt((x ** 2).sum(axis=axis))
-
-    @staticmethod
-    def _prepare_indexes(vec):
-        if len(vec[0]) == 3:
-            g = np.array([p[0] for p in vec], dtype=np.uint16)
-        else:
-            g = None
-        i = np.array([p[1] for p in vec], dtype=np.uint16)
-        j = np.array([p[2] for p in vec], dtype=np.uint16)
-        return g, i, j
 
 
 # Usage example:
