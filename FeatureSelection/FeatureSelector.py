@@ -25,7 +25,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pymc")
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-class AdvancedFeatureSelector:
+class FeatureSelector:
     def __init__(self, base_path, organ, target_path, target_col, random_state=42):
         self.base_path = base_path
         self.organ = organ
@@ -798,7 +798,7 @@ class AdvancedFeatureSelector:
 #         print(f"Колонка таргета: {config['target_col']}")
 #         print(f"{'=' * 50}")
 #
-#         selector = AdvancedFeatureSelector(
+#         selector = FeatureSelector(
 #             base_path=BASE_PATH,
 #             organ=organ,
 #             target_path=config['target_path'],

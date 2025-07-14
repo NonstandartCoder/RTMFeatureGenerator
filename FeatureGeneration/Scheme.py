@@ -16,9 +16,6 @@ class Scheme:
     def get_dot_names(self):
         return self.dot_names
 
-    def get_temperatures(self):
-        return self.temperatures
-
     def get_has_paired_organ(self):
         return self.has_paired_organ
 
@@ -339,4 +336,3 @@ class Scheme:
                 seen[dot] = idx
         if duplicates:
             raise ValueError(f"Duplicate dot names: {', '.join(duplicates)}")
-
