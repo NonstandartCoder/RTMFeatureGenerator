@@ -47,7 +47,7 @@ class FeatureSelector:
         os.makedirs(self.classification_results_dir, exist_ok=True)
 
         # Параметры для настройки
-        self.stability_threshold = 0.5  # Уменьшенный порог стабильности
+        self.stability_threshold = 0.5
         self.corr_threshold = 0.7
         self.variance_threshold = 0.01
         self.test_drop_threshold = 0.2
