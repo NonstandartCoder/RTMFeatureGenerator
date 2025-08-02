@@ -21,6 +21,10 @@ class IntervalsLabel:
             self.split_data()
 
     def split_data(self):
+        """
+        Splits data into test and train dataframes with stratification if needed.
+        :return: Test and train dfs.
+        """
         if self.label_col:
             stratify = self.df_for_func[self.label_col]
         else:
@@ -35,6 +39,16 @@ class IntervalsLabel:
     @staticmethod
     def get_data_for_intervals(df_for_func, th_col, label_col, type1_health_start=None, type2_health_start=None,
                                GMTh_compare_val=False):
+        """
+        Gets data for interval method.
+        :param df_for_func: input df.
+        :param th_col: additional label column.
+        :param label_col: main label column.
+        :param type1_health_start: checker for type of interval start.
+        :param type2_health_start: checker for type of interval start.
+        :param GMTh_compare_val: flag for calculating metric for th labels.
+        :return: result of the interval method.
+        """
         if GMTh_compare_val:
             df_res = pd.DataFrame(
                 columns=['MG', 'delta', 'start_point', 'left_interval_limit', 'right_interval_limit', 'label 0',
