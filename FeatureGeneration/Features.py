@@ -192,14 +192,30 @@ class Features:
             v1_dots = []
             for (m_idx, r, c) in vec1:
                 matrix_name = self.matrix_names[m_idx]
-                dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
-                v1_dots.append(dot_grid[r][c])
+
+                # Extract dot name from matrix name if it's a support point
+                if '(' in matrix_name and ')' in matrix_name:
+                    start = matrix_name.index('(') + 1
+                    end = matrix_name.index(')', start)
+                    dot_name = matrix_name[start:end]
+                    v1_dots.append(dot_name)
+                else:
+                    # Regular grid point
+                    dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
+                    v1_dots.append(dot_grid[r][c])
 
             v2_dots = []
             for (m_idx, r, c) in vec2:
                 matrix_name = self.matrix_names[m_idx]
-                dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
-                v2_dots.append(dot_grid[r][c])
+
+                if '(' in matrix_name and ')' in matrix_name:
+                    start = matrix_name.index('(') + 1
+                    end = matrix_name.index(')', start)
+                    dot_name = matrix_name[start:end]
+                    v2_dots.append(dot_name)
+                else:
+                    dot_grid = self.symmetric_vectors_obj.get_dot_names(matrix_name)
+                    v2_dots.append(dot_grid[r][c])
 
             v1_unique = sorted(list(set(v1_dots)))
             v2_unique = sorted(list(set(v2_dots)))
@@ -370,108 +386,108 @@ class Features:
 
 
 # Usage example:
-# from Scheme import Scheme
-#
-# if __name__ == "__main__":
-#     np.set_printoptions(precision=5, suppress=True)
-#     dots = {
-#         "inner left": np.array([
-#             ["L1", "L2", "L3"],
-#             ["L4", "L5", "L6"],
-#             ["L7", "L8", "L9"]
-#         ]),
-#         "skin left": np.array([
-#             ["L1K", "L2K", "L3K"],
-#             ["L4K", "L5K", "L6K"],
-#             ["L7K", "L8K", "L9K"]
-#         ]),
-#         "inner right": np.array([
-#             ["R1", "R2", "R3"],
-#             ["R4", "R5", "R6"],
-#             ["R7", "R8", "R9"]
-#         ]),
-#         "skin right": np.array([
-#             ["R1K", "R2K", "R3K"],
-#             ["R4K", "R5K", "R6K"],
-#             ["R7K", "R8K", "R9K"]
-#         ]),
-#         "support inner left": np.array([["LO"]]),
-#         "support skin left": np.array([["LOK"]]),
-#         "support inner right": np.array([["RO"]]),
-#         "support skin right": np.array([["ROK"]])
-#     }
-#
-#     df = pd.read_excel("../Data/Ovaries/Ovaries.xlsx")
-#     ovaries = Scheme(df, dots, (3, 3), True, True, False)
-#     print(ovaries.get_tensors()[0])
-#     vecs = SymmetricVectors(ovaries)
-#     sym_vectors = vecs.get_symmetric_vectors()
-#     print(len(sym_vectors), len(ovaries.get_tensors()[0]))
-#     features = Features(ovaries)
-#     features.get_features(output_dir="../Data/Ovaries/FinalFeatures/")
-#
-#     dots = {
-#         "inner left": np.array([
-#             ["L1", "L2", "L3"],
-#             ["L4", "L5", "L6"],
-#             ["L7", "L8", "L9"]
-#         ]),
-#         "skin left": np.array([
-#             ["кожа L1", "кожа L2", "кожа L3"],
-#             ["кожа L4", "кожа L5", "кожа L6"],
-#             ["кожа L7", "кожа L8", "кожа L9"]
-#         ]),
-#         "inner right": np.array([
-#             ["R1", "R2", "R3"],
-#             ["R4", "R5", "R6"],
-#             ["R7", "R8", "R9"]
-#         ]),
-#         "skin right": np.array([
-#             ["кожа R1", "кожа R2", "кожа R3"],
-#             ["кожа R4", "кожа R5", "кожа R6"],
-#             ["кожа R7", "кожа R8", "кожа R9"]
-#         ])
-#     }
-#
-#     df = pd.read_excel("../Data/Brain/BrainDataCRS.xlsx")
-#     brain = Scheme(df, dots, (3, 3), True, False, False)
-#     print(brain.get_tensors()[0])
-#     vecs = SymmetricVectors(brain)
-#     sym_vectors = vecs.get_symmetric_vectors()
-#     print(len(sym_vectors), len(brain.get_tensors()[0]))
-#     features = Features(brain)
-#     features.get_features(output_dir="../Data/Brain/FinalFeatures/")
-#
-#     dots = {"inner left": np.array([
-#         np.array(["t28", "t21", "t22"]),
-#         np.array(["t27", "t20", "t23"]),
-#         np.array(["t24", "t25", "t26"])
-#     ]), "inner right": np.array([
-#         np.array(["t8", "t1", "t2"]),
-#         np.array(["t7", "t0", "t3"]),
-#         np.array(["t4", "t5", "t6"])
-#     ]), "skin left": np.array([
-#         np.array(["t38", "t31", "t32"]),
-#         np.array(["t37", "t30", "t33"]),
-#         np.array(["t34", "t35", "t36"])
-#     ]), "skin right": np.array([
-#         np.array(["t18", "t11", "t12"]),
-#         np.array(["t17", "t10", "t13"]),
-#         np.array(["t14", "t15", "t16"])
-#     ]),
-#         "support inner left": np.array([["t29"]]),
-#         "support skin left": np.array([["t9"]]),
-#         "support inner right": np.array([["t39"]]),
-#         "support skin right": np.array([["t19"]]),
-#         "central inner support dots": np.array([["t40", "t41"]]),
-#         "central skin support dots": np.array([["t42", "t43"]])
-#     }
-#
-#     df = pd.read_excel("../Data/MammaryGlands/MGBothOrgans.xlsx")
-#     MG = Scheme(df, dots, (3, 3), True, True, True)
-#     print(MG.get_tensors()[0])
-#     vecs = SymmetricVectors(MG)
-#     sym_vectors = vecs.get_symmetric_vectors()
-#     print(len(sym_vectors), len(MG.get_tensors()[0]))
-#     features = Features(MG)
-#     features.get_features(output_dir="../Data/MammaryGlands/FinalFeatures/")
+from Scheme import Scheme
+
+if __name__ == "__main__":
+    np.set_printoptions(precision=5, suppress=True)
+    dots = {
+        "inner left": np.array([
+            ["L1", "L2", "L3"],
+            ["L4", "L5", "L6"],
+            ["L7", "L8", "L9"]
+        ]),
+        "skin left": np.array([
+            ["L1K", "L2K", "L3K"],
+            ["L4K", "L5K", "L6K"],
+            ["L7K", "L8K", "L9K"]
+        ]),
+        "inner right": np.array([
+            ["R1", "R2", "R3"],
+            ["R4", "R5", "R6"],
+            ["R7", "R8", "R9"]
+        ]),
+        "skin right": np.array([
+            ["R1K", "R2K", "R3K"],
+            ["R4K", "R5K", "R6K"],
+            ["R7K", "R8K", "R9K"]
+        ]),
+        "support inner left": np.array([["LO"]]),
+        "support skin left": np.array([["LOK"]]),
+        "support inner right": np.array([["RO"]]),
+        "support skin right": np.array([["ROK"]])
+    }
+
+    df = pd.read_excel("../Data/Ovaries/Ovaries.xlsx")
+    ovaries = Scheme(df, dots, (3, 3), True, True, False)
+    print(ovaries.get_tensors()[0])
+    vecs = SymmetricVectors(ovaries)
+    sym_vectors = vecs.get_symmetric_vectors()
+    print(len(sym_vectors), len(ovaries.get_tensors()[0]))
+    features = Features(ovaries)
+    features.get_features(output_dir="../Data/Ovaries/Features/")
+
+    dots = {
+        "inner left": np.array([
+            ["L1", "L2", "L3"],
+            ["L4", "L5", "L6"],
+            ["L7", "L8", "L9"]
+        ]),
+        "skin left": np.array([
+            ["кожа L1", "кожа L2", "кожа L3"],
+            ["кожа L4", "кожа L5", "кожа L6"],
+            ["кожа L7", "кожа L8", "кожа L9"]
+        ]),
+        "inner right": np.array([
+            ["R1", "R2", "R3"],
+            ["R4", "R5", "R6"],
+            ["R7", "R8", "R9"]
+        ]),
+        "skin right": np.array([
+            ["кожа R1", "кожа R2", "кожа R3"],
+            ["кожа R4", "кожа R5", "кожа R6"],
+            ["кожа R7", "кожа R8", "кожа R9"]
+        ])
+    }
+
+    df = pd.read_excel("../Data/Brain/BrainDataCRS.xlsx")
+    brain = Scheme(df, dots, (3, 3), True, False, False)
+    print(brain.get_tensors()[0])
+    vecs = SymmetricVectors(brain)
+    sym_vectors = vecs.get_symmetric_vectors()
+    print(len(sym_vectors), len(brain.get_tensors()[0]))
+    features = Features(brain)
+    features.get_features(output_dir="../Data/Brain/Features/")
+
+    dots = {"inner left": np.array([
+        np.array(["t28", "t21", "t22"]),
+        np.array(["t27", "t20", "t23"]),
+        np.array(["t24", "t25", "t26"])
+    ]), "inner right": np.array([
+        np.array(["t8", "t1", "t2"]),
+        np.array(["t7", "t0", "t3"]),
+        np.array(["t4", "t5", "t6"])
+    ]), "skin left": np.array([
+        np.array(["t38", "t31", "t32"]),
+        np.array(["t37", "t30", "t33"]),
+        np.array(["t34", "t35", "t36"])
+    ]), "skin right": np.array([
+        np.array(["t18", "t11", "t12"]),
+        np.array(["t17", "t10", "t13"]),
+        np.array(["t14", "t15", "t16"])
+    ]),
+        "support inner left": np.array([["t29"]]),
+        "support skin left": np.array([["t9"]]),
+        "support inner right": np.array([["t39"]]),
+        "support skin right": np.array([["t19"]]),
+        "central inner support dots": np.array([["t40", "t41"]]),
+        "central skin support dots": np.array([["t42", "t43"]])
+    }
+
+    df = pd.read_excel("../Data/MammaryGlands/MGBothOrgans.xlsx")
+    MG = Scheme(df, dots, (3, 3), True, True, True)
+    print(MG.get_tensors()[0])
+    vecs = SymmetricVectors(MG)
+    sym_vectors = vecs.get_symmetric_vectors()
+    print(len(sym_vectors), len(MG.get_tensors()[0]))
+    features = Features(MG)
+    features.get_features(output_dir="../Data/MammaryGlands/Features/")

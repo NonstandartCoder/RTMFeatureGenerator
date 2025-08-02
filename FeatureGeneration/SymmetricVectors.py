@@ -11,28 +11,134 @@ class SymmetricVectors:
         self.matrix_names = self.get_matrix_names()
 
     def get_matrix_names(self):
-        base = [
+        base_names = [
             "Inner", "Skin", "Gradient",
             "Laplacian Inner", "Laplacian Skin",
             "Inner Gradient X", "Inner Gradient Y",
             "Skin Gradient X", "Skin Gradient Y"
         ]
 
-        if self.scheme.get_has_support_points():
-            support_matrices = [f"{name} Support" for name in base]
-            base.extend(support_matrices)
+        dot_names = self.scheme.get_dot_names()
+        names = []
 
-            if self.scheme.get_has_central_support_points():
-                central_support_matrices = [f"{name} Central Support" for name in base]
-                base.extend(central_support_matrices)
+        def get_dot_str(base_name, dots):
+            """Returns appropriate dot string based on matrix type and context"""
+            if "Gradient" in base_name or "Laplacian" in base_name:
+                return "/".join([d for d in dots.values() if d])
+            elif "Inner" in base_name:
+                return dots.get("inner", dots.get("left_inner", dots.get("right_inner", "")))
+            elif "Skin" in base_name:
+                return dots.get("skin", dots.get("left_skin", dots.get("right_skin", "")))
+            return "/".join([d for d in dots.values() if d])
 
         if self.has_paired_organ:
-            left = [f"{n} left" for n in base]
-            right = [f"{n} right" for n in base]
-            diff = [f"{n} diff" for n in base]
-            return left + right + diff
+            # Base channels: left, right, diff (9 × 3 = 27)
+            for base in base_names:
+                names.append(f"{base} left")
+                names.append(f"{base} right")
+                names.append(f"{base} diff")
 
-        return base
+            # Regular support points
+            if self.scheme.get_has_support_points():
+                inner_left = dot_names["support inner left"].ravel()
+                skin_left = dot_names["support skin left"].ravel()
+                inner_right = dot_names["support inner right"].ravel()
+                skin_right = dot_names["support skin right"].ravel()
+
+                for i in range(len(inner_left)):
+                    lo = inner_left[i]  # Left inner dot (e.g., "LO")
+                    lok = skin_left[i]  # Left skin dot (e.g., "LOK")
+                    ro = inner_right[i]  # Right inner dot (e.g., "RO")
+                    rok = skin_right[i]  # Right skin dot (e.g., "ROK")
+
+                    for base in base_names:
+                        # Left side
+                        dots = {"left_inner": lo, "left_skin": lok}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} Support({dot_str}) left")
+
+                        # Right side - corrected
+                        dots = {"right_inner": ro, "right_skin": rok}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} Support({dot_str}) right")
+
+                        # Diff side
+                        if "Inner" in base or "Laplacian Inner" in base:
+                            dot_str = f"{lo}/{ro}"
+                        elif "Skin" in base or "Laplacian Skin" in base:
+                            dot_str = f"{lok}/{rok}"
+                        else:
+                            dot_str = f"{lo}/{lok}/{ro}/{rok}"
+                        names.append(f"{base} Support({dot_str}) diff")
+
+            # Central support points
+            if self.scheme.get_has_central_support_points():
+                central_inner = dot_names["central inner support dots"].ravel()
+                central_skin = dot_names["central skin support dots"].ravel()
+
+                # For paired organs, central support dots come in pairs
+                n_central = len(central_inner) // 2
+                for i in range(n_central):
+                    # Left central dots
+                    inner_left = central_inner[2 * i]
+                    skin_left = central_skin[2 * i]
+                    # Right central dots
+                    inner_right = central_inner[2 * i + 1]
+                    skin_right = central_skin[2 * i + 1]
+
+                    for base in base_names:
+                        # Left central
+                        dots = {"left_inner": inner_left, "left_skin": skin_left}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} CentralSupport({dot_str}) left")
+
+                        # Right central
+                        dots = {"right_inner": inner_right, "right_skin": skin_right}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} CentralSupport({dot_str}) right")
+
+                        # Central diff
+                        if "Inner" in base or "Laplacian Inner" in base:
+                            dot_str = f"{inner_left}/{inner_right}"
+                        elif "Skin" in base or "Laplacian Skin" in base:
+                            dot_str = f"{skin_left}/{skin_right}"
+                        else:
+                            dot_str = f"{inner_left}/{skin_left}/{inner_right}/{skin_right}"
+                        names.append(f"{base} CentralSupport({dot_str}) diff")
+
+        else:  # Single organ
+            # Base channels (9)
+            names.extend(base_names)
+
+            # Regular support points
+            if self.scheme.get_has_support_points():
+                inner_dots = dot_names["support inner"].ravel()
+                skin_dots = dot_names["support skin"].ravel()
+
+                for i in range(len(inner_dots)):
+                    inner_dot = inner_dots[i]
+                    skin_dot = skin_dots[i]
+
+                    for base in base_names:
+                        dots = {"inner": inner_dot, "skin": skin_dot}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} Support({dot_str})")
+
+            # Central support points
+            if self.scheme.get_has_central_support_points():
+                central_inner = dot_names["central inner support dots"].ravel()
+                central_skin = dot_names["central skin support dots"].ravel()
+
+                for i in range(len(central_inner)):
+                    inner_dot = central_inner[i]
+                    skin_dot = central_skin[i]
+
+                    for base in base_names:
+                        dots = {"inner": inner_dot, "skin": skin_dot}
+                        dot_str = get_dot_str(base, dots)
+                        names.append(f"{base} CentralSupport({dot_str})")
+
+        return names
 
     def reflect_point(self, x, y, line_p1, line_p2):
         x1, y1 = line_p1
